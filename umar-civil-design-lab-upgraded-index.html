@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Umar Civil Design Lab — Mobile CAD</title>
+<meta name="theme-color" content="#17191c">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#111;color:#eee;font-family:Arial,sans-serif}
+button,input{font:inherit}.app{height:100%;display:flex;flex-direction:column}.top{height:52px;display:flex;align-items:center;gap:7px;padding:0 8px;background:#1b1d20;border-bottom:1px solid #45484c;z-index:10}
+.logo{font-weight:800;color:#61bfff;white-space:nowrap;font-size:14px}.spacer{flex:1}.btn{border:1px solid #555;background:#292c30;color:#eee;border-radius:6px;padding:7px 9px;min-height:34px}.btn:active,.btn.active{background:#075d8e}
+.workspace{position:relative;flex:1;min-height:0;background:#151719}.canvas{position:absolute;inset:0}canvas{width:100%;height:100%;display:block;touch-action:none}
+.command{position:absolute;left:8px;right:8px;bottom:8px;height:35px;background:#1b1d20e8;border:1px solid #50545a;border-radius:6px;padding:9px 10px;font:12px monospace;color:#8dd7ff;pointer-events:none}
+.toolbar{position:absolute;left:8px;top:8px;display:flex;gap:5px;flex-wrap:wrap;max-width:calc(100% - 16px);z-index:4}
+.toolbar .btn{padding:7px 8px}.panel{position:absolute;right:8px;top:8px;width:245px;max-height:calc(100% - 58px);overflow:auto;background:#1d2023ee;border:1px solid #4b5055;border-radius:8px;padding:9px;z-index:5}
+.panel h3{font-size:13px;color:#61bfff;margin:3px 0 8px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:5px}.row{display:flex;justify-content:space-between;border-bottom:1px solid #34383d;padding:6px 2px;font-size:12px}.small{font-size:11px;color:#aaa;line-height:1.45}.section{margin-bottom:10px;padding-bottom:9px;border-bottom:1px solid #34383d}.lesson{background:#282c30;border-radius:5px;padding:7px;margin:4px 0;font-size:11px}.current{border-left:3px solid #61bfff}
+.mobileTools{display:none}
+@media(max-width:760px){.logo{font-size:12px}.desktopOnly{display:none}.panel{width:225px;transform:translateX(calc(100% + 12px));transition:.18s}.panel.open{transform:translateX(0)}.mobileTools{display:flex;position:absolute;left:8px;top:55px;z-index:4;gap:5px}.mobileTools .btn{font-size:11px;padding:6px}.top{height:50px}}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="top">
+<div class="logo">🧠 UMAR CIVIL DESIGN LAB</div>
+<span class="desktopOnly" style="font-size:10px;color:#999">AUTO CAD + REVIT PRACTICE</span>
+<div class="spacer"></div>
+<button class="btn" onclick="newDrawing()">New</button>
+<button class="btn" onclick="undo()">↶</button>
+<button class="btn" onclick="redo()">↷</button>
+<button class="btn" onclick="exportPNG()">Export</button>
+<button class="btn" onclick="togglePanel()">☰</button>
+</div>
+<div class="workspace">
+<canvas id="cad"></canvas>
+<div class="toolbar">
+<button class="btn active" data-tool="select" onclick="tool('select')">↖ Select</button>
+<button class="btn" data-tool="wall" onclick="tool('wall')">▤ Wall</button>
+<button class="btn" data-tool="room" onclick="tool('room')">□ Room</button>
+<button class="btn" data-tool="line" onclick="tool('line')">╱ Line</button>
+<button class="btn" data-tool="door" onclick="tool('door')">🚪 Door</button>
+<button class="btn" data-tool="window" onclick="tool('window')">▥ Window</button>
+<button class="btn" data-tool="column" onclick="tool('column')">▦ Column</button>
+<button class="btn" data-tool="dimension" onclick="tool('dimension')">↔ Dim</button>
+<button class="btn" data-tool="erase" onclick="tool('erase')">⌫ Erase</button>
+<button class="btn" data-tool="pan" onclick="tool('pan')">✋ Pan</button>
+</div>
+<div class="mobileTools">
+<button class="btn" onclick="zoomBy(1.2)">＋</button><button class="btn" onclick="zoomBy(.83)">−</button><button class="btn" onclick="fit()">Fit</button>
+</div>
+<div class="command" id="command">Command: SELECT — Tap an object or choose a tool</div>
+<div class="panel" id="panel">
+<div class="section"><h3>TOOLS</h3><div class="grid">
+<button class="btn" onclick="tool('select')">↖ Select</button><button class="btn" onclick="tool('wall')">▤ Wall</button>
+<button class="btn" onclick="tool('room')">□ Room</button><button class="btn" onclick="tool('line')">╱ Line</button>
+<button class="btn" onclick="tool('door')">🚪 Door</button><button class="btn" onclick="tool('window')">▥ Window</button>
+<button class="btn" onclick="tool('column')">▦ Column</button><button class="btn" onclick="tool('dimension')">↔ Dimension</button>
+<button class="btn" onclick="tool('erase')">⌫ Erase</button><button class="btn" onclick="tool('pan')">✋ Pan</button>
+</div></div>
+<div class="section"><h3>DRAWING SETTINGS</h3>
+<div class="row"><span>Units</span><b>mm</b></div><div class="row"><span>Grid</span><b>250</b></div>
+<div class="row"><span>Snap</span><b id="snapVal">ON</b></div><div class="row"><span>Scale</span><b id="scaleVal">1.00x</b></div>
+<button class="btn" style="width:100%;margin-top:6px" onclick="toggleSnap()">Toggle Snap</button>
+</div>
+<div class="section"><h3>PROJECT / REVIT PATH</h3>
+<div class="lesson current">✓ 01 CAD workspace & coordinates</div><div class="lesson">02 Walls, rooms & openings</div>
+<div class="lesson">03 Doors & windows</div><div class="lesson">04 Columns & beams</div><div class="lesson">05 Dimensions & annotation</div>
+<div class="lesson">06 Complete ground-floor plan</div><div class="lesson">R01 Levels & grids</div><div class="lesson">R02 3D building workflow</div>
+</div>
+<div class="section"><h3>TEACHER 🧑‍🏫</h3><div id="teacher" class="small">Bhai, pehle Wall → Room → Door/Window → Dimension se building plan practice karenge.</div></div>
+<div class="section"><h3>SELECTED</h3><div id="props" class="small">Nothing selected.</div></div>
+<div class="section"><h3>IMPORTANT</h3><div class="small">Ye learning/practice CAD simulator hai, professional AutoCAD/Revit replacement nahi. Construction drawing ko issue karne se pehle qualified engineer/architect se review karna zaroori hai.</div></div>
+</div>
+</div>
+</div>
+<script>
+const c=document.getElementById('cad'),ctx=c.getContext('2d');
+let dpr=devicePixelRatio||1,W=0,H=0,zoom=1,offset={x:0,y:0},snapOn=true,current='select',start=null,history=[],future=[],selected=null,objects=[];
+const COLORS={wall:'#e5e7e9',line:'#65c7ff',room:'#65c7ff',door:'#ffd166',window:'#7de2ff',column:'#ff8c8c',dimension:'#c6f6d5'};
+function resize(){W=c.clientWidth;H=c.clientHeight;c.width=W*dpr;c.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);draw()}
+addEventListener('resize',resize);
+function screenToWorld(e){const r=c.getBoundingClientRect();return{x:(e.clientX-r.left-offset.x)/zoom,y:(e.clientY-r.top-offset.y)/zoom}}
+function snap(p){return snapOn?{x:Math.round(p.x/25)*25,y:Math.round(p.y/25)*25}:p}
+function grid(){ctx.fillStyle='#151719';ctx.fillRect(0,0,W,H);let s=25*zoom,ox=((offset.x%s)+s)%s,oy=((offset.y%s)+s)%s;ctx.strokeStyle='#22282d';ctx.lineWidth=1;for(let x=ox;x<W;x+=s){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}for(let y=oy;y<H;y+=s){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}}
+function draw(){grid();ctx.save();ctx.translate(offset.x,offset.y);ctx.scale(zoom,zoom);objects.forEach((o,i)=>{
+ctx.strokeStyle=COLORS[o.type]||'#fff';ctx.fillStyle='transparent';ctx.lineWidth=(o.type==='wall'?8:o.type==='column'?3:2)/zoom;
+if(o.type==='line'||o.type==='wall'){ctx.beginPath();ctx.moveTo(o.x1,o.y1);ctx.lineTo(o.x2,o.y2);ctx.stroke()}
+if(o.type==='room'){ctx.strokeRect(o.x,o.y,o.w,o.h)}
+if(o.type==='column'){ctx.strokeRect(o.x-75,o.y-75,150,150);ctx.strokeRect(o.x-55,o.y-55,110,110)}
+if(o.type==='door'){ctx.beginPath();ctx.moveTo(o.x1,o.y1);ctx.lineTo(o.x2,o.y2);ctx.stroke();ctx.beginPath();ctx.arc(o.x1,o.y1,Math.hypot(o.x2-o.x1,o.y2-o.y1),0,Math.PI/2);ctx.stroke()}
+if(o.type==='window'){ctx.beginPath();ctx.moveTo(o.x1,o.y1);ctx.lineTo(o.x2,o.y2);ctx.stroke();let dx=o.x2-o.x1,dy=o.y2-o.y1,len=Math.hypot(dx,dy)||1,nx=-dy/len*18,ny=dx/len*18;ctx.beginPath();ctx.moveTo(o.x1+nx,o.y1+ny);ctx.lineTo(o.x2+nx,o.y2+ny);ctx.moveTo(o.x1-nx,o.y1-ny);ctx.lineTo(o.x2-nx,o.y2-ny);ctx.stroke()}
+if(o.type==='dimension'){ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(o.x1,o.y1);ctx.lineTo(o.x2,o.y2);ctx.stroke();let d=Math.hypot(o.x2-o.x1,o.y2-o.y1);ctx.fillStyle=COLORS.dimension;ctx.font='12px Arial';ctx.fillText(Math.round(d)+' mm',(o.x1+o.x2)/2+5,(o.y1+o.y2)/2-5)}
+if(i===selected){ctx.strokeStyle='#00ff9d';ctx.setLineDash([5,5]);ctx.lineWidth=2/zoom;if(o.type==='room')ctx.strokeRect(o.x-4,o.y-4,o.w+8,o.h+8);ctx.setLineDash([])}
+});ctx.restore()}
+function pushHistory(){history.push(JSON.stringify(objects));if(history.length>60)history.shift();future=[]}
+function restore(s){objects=JSON.parse(s);selected=null;draw();updateProps()}
+function undo(){if(!history.length)return;future.push(JSON.stringify(objects));restore(history.pop())}
+function redo(){if(!future.length)return;history.push(JSON.stringify(objects));restore(future.pop())}
+function tool(t){current=t;start=null;document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('active',b.dataset.tool===t));let msg={select:'Tap an object to inspect it.',wall:'Draw an external or internal wall run. Snap is active.',room:'Drag a rectangle to create a room.',line:'Draw a reference line.',door:'Draw a door opening line.',window:'Draw a window line.',column:'Tap to place a 150 × 150 mm practice column.',dimension:'Draw between two points to measure.',erase:'Tap an object to erase it.',pan:'Drag the canvas to move around.'}[t];document.getElementById('command').textContent='Command: '+t.toUpperCase()+' — '+msg;document.getElementById('teacher').textContent='Bhai, '+msg}
+function pointerDown(e){c.setPointerCapture(e.pointerId);const p=snap(screenToWorld(e));if(current==='pan'){start=p;return}if(current==='column'){pushHistory();objects.push({type:'column',x:p.x,y:p.y});draw();return}if(current==='select'){selected=hit(p);updateProps();draw();return}if(current==='erase'){let i=hit(p);if(i>=0){pushHistory();objects.splice(i,1);selected=null;draw();updateProps()}return}start=p}
+function pointerMove(e){if(current!=='pan'||!start)return;const p=screenToWorld(e);offset.x+=(p.x-start.x)*zoom;offset.y+=(p.y-start.y)*zoom;start=p;draw()}
+function pointerUp(e){if(!start||current==='pan'||current==='select'||current==='erase'||current==='column')return;const p=snap(screenToWorld(e));
+if(current==='room'){let x=Math.min(start.x,p.x),y=Math.min(start.y,p.y),w=Math.abs(p.x-start.x),h=Math.abs(p.y-start.y);if(w>25&&h>25){pushHistory();objects.push({type:'room',x,y,w,h});draw()}}
+else if(['wall','line','door','window','dimension'].includes(current)){if(Math.hypot(p.x-start.x,p.y-start.y)>5){pushHistory();objects.push({type:current,x1:start.x,y1:start.y,x2:p.x,y2:p.y});draw()}}start=null}
+function hit(p){for(let i=objects.length-1;i>=0;i--){let o=objects[i];
+if(o.type==='room'&&p.x>=o.x-8&&p.x<=o.x+o.w+8&&p.y>=o.y-8&&p.y<=o.y+o.h+8)return i;
+if(['wall','line','door','window','dimension'].includes(o.type)){let dx=o.x2-o.x1,dy=o.y2-o.y1,t=((p.x-o.x1)*dx+(p.y-o.y1)*dy)/(dx*dx+dy*dy||1);t=Math.max(0,Math.min(1,t));let q={x:o.x1+t*dx,y:o.y1+t*dy};if(Math.hypot(p.x-q.x,p.y-q.y)<15)return i}
+if(o.type==='column'&&Math.abs(p.x-o.x)<85&&Math.abs(p.y-o.y)<85)return i}return -1}
+function updateProps(){const el=document.getElementById('props');if(selected===null||!objects[selected]){el.textContent='Nothing selected.';return}const o=objects[selected];if(o.type==='room')el.textContent='ROOM • '+Math.round(o.w)+' × '+Math.round(o.h)+' mm';else if(o.x1!==undefined)el.textContent=o.type.toUpperCase()+' • '+Math.round(Math.hypot(o.x2-o.x1,o.y2-o.y1))+' mm';else el.textContent='COLUMN • 150 × 150 mm practice object'}
+function toggleSnap(){snapOn=!snapOn;document.getElementById('snapVal').textContent=snapOn?'ON':'OFF'}
+function zoomBy(v){zoom=Math.max(.35,Math.min(4,zoom*v));document.getElementById('scaleVal').textContent=zoom.toFixed(2)+'x';draw()}
+function fit(){zoom=1;offset={x:0,y:0};document.getElementById('scaleVal').textContent='1.00x';draw()}
+function togglePanel(){document.getElementById('panel').classList.toggle('open')}
+function newDrawing(){if(confirm('Start a new drawing?')){objects=[];history=[];future=[];selected=null;fit();draw();updateProps()}}
+function exportPNG(){const a=document.createElement('a');a.download='umar-civil-plan-practice.png';a.href=c.toDataURL('image/png');a.click()}
+c.addEventListener('pointerdown',pointerDown);c.addEventListener('pointermove',pointerMove);c.addEventListener('pointerup',pointerUp);
+c.addEventListener('wheel',e=>{e.preventDefault();zoomBy(e.deltaY<0?1.1:.9)},{passive:false});resize();
+if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+</script>
+</body>
+</html>
