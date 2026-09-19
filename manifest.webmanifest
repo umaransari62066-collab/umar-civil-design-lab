@@ -1,0 +1,10 @@
+{
+  "name": "Umar Civil Design Lab",
+  "short_name": "Umar CAD Lab",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#151515",
+  "theme_color": "#202020",
+  "orientation": "landscape",
+  "description": "Personal phone-based CAD and civil design practice lab."
+}
